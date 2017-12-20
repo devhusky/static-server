@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.16.2",
     "mime": "^2.0.3"
   }
 }
