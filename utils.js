@@ -33,6 +33,26 @@ exports.parseRange = function(str, size) {
   }
 }
 
+exports.bodyParse = function(req, cb) {
+  var bodyData = ''
+  req.on('data', function(data) {
+
+    bodyData += data
+  })
+
+  req.on('end', function() {
+    const params = bodyData.split('&')
+    var body = {}
+    params.forEach(function(item) {
+      const kv = item.split('=')
+      body[kv[0]] = kv[1]
+    })
+    cb(body)
+  })
+}
+
+// exports.mkdir = function()
+
 exports.upload = function(uploadFolder, req, res, next) {
 
 }

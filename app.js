@@ -11,12 +11,27 @@ const utils = require('./utils.js')
 const server = http.createServer()
 
 server.on('request', function(req, res) {
+
   // http://localhost:3000/husky%E7%9A%84%E5%89%AF%E6%9C%AC.jpg
   // 将url转码encodeURI(URI)后的字符 进行解码
   const _url = decodeURI(req.url)
   const pathName = url.parse(_url).pathname
   const realPath = path.normalize(config.Default.rootPath + pathName) // normalize格式化路径
   console.log('GET: ' + path.normalize(realPath));
+
+  console.log(req.method);
+  if (req.method.toLowerCase() === 'post') {
+    utils.bodyParse(req, function(body) {
+      createDir(realPath, body.dirname)
+
+      const content = `<a href='.'>刷新</a>`
+      res.writeHead(200, 'OK', {
+        'Content-Type': 'text/html; charset=utf8'
+      })
+      res.end(content)
+    })
+    return
+  }
 
   fs.stat(realPath, function(err, stats) {
     if (err) {
@@ -42,6 +57,61 @@ server.on('request', function(req, res) {
   })
 })
 
+function redirect(url) {
+  var address = url;
+  var body;
+  var status = 302;
+
+  // allow status / url
+  if (arguments.length === 2) {
+    if (typeof arguments[0] === 'number') {
+      status = arguments[0];
+      address = arguments[1];
+    } else {
+      deprecate('res.redirect(url, status): Use res.redirect(status, url) instead');
+      status = arguments[1];
+    }
+  }
+
+  // Set location header
+  address = res.location(address).get('Location');
+
+  // Support text/{plain,html} by default
+  this.format({
+    text: function(){
+      body = statuses[status] + '. Redirecting to ' + address
+    },
+
+    html: function(){
+      var u = escapeHtml(address);
+      body = '<p>' + statuses[status] + '. Redirecting to <a href="' + u + '">' + u + '</a></p>'
+    },
+
+    default: function(){
+      body = '';
+    }
+  });
+
+  // Respond
+  this.statusCode = status;
+  this.set('Content-Length', Buffer.byteLength(body));
+
+  if (this.req.method === 'HEAD') {
+    this.end();
+  } else {
+    this.end(body);
+  }
+};
+
+function createDir(folderPath, dirName) {
+  const mkPath = path.join(folderPath, dirName)
+  console.log('mkPath:' + mkPath);
+
+  if (!fs.existsSync(mkPath)) {
+    fs.mkdirSync(mkPath);
+  }
+}
+
 // 当前请求为文件夹的处理方法
 function directoryResponseDeal(realPath, pathName, req, res) {
   fs.readdir(realPath, function(err, files) {
@@ -51,6 +121,11 @@ function directoryResponseDeal(realPath, pathName, req, res) {
     }
 
     var content = `<h1>Index of ${pathName}</h1>`
+    content += `<form method='post'>
+                    <input type="text" name="dirname" placeholder='文件夹名称'>
+                    <input type="submit" value="创建">
+                  <form>`
+    content += `<hr></hr>`
     content += `<p><a href='..'>..</a></p>`
 
     files.forEach(function(file) {
