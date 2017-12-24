@@ -4,6 +4,8 @@ const url = require('url')
 const path = require('path')
 const mime = require('mime') // 获取MIME类型
 const zlib = require('zlib') // 文件压缩
+const formidable = require('formidable')
+const util = require('util')
 const config = require('./config/default.js')
 const utils = require('./utils.js')
 
@@ -19,17 +21,58 @@ server.on('request', function(req, res) {
   const realPath = path.normalize(config.Default.rootPath + pathName) // normalize格式化路径
   console.log('GET: ' + path.normalize(realPath));
 
-  console.log(req.method);
   if (req.method.toLowerCase() === 'post') {
-    utils.bodyParse(req, function(body) {
-      createDir(realPath, body.dirname)
 
-      const content = `<a href='.'>刷新</a>`
-      res.writeHead(200, 'OK', {
-        'Content-Type': 'text/html; charset=utf8'
-      })
-      res.end(content)
-    })
+    var form = new formidable.IncomingForm();
+      // 设置上传的文件夹路径
+      form.uploadDir = realPath
+      form.keepExtensions = true
+
+      form.parse(req, function(err, fields, files) {
+        if (err) {
+          console.log(err)
+          return
+        }
+
+        redirect(res, './')
+    });
+
+    // utils.bodyParse(req, function(body) {
+    //   console.log('body:')
+    //   console.log(body)
+
+    //   if (body.file) { // 上传文件
+    //     console.log('=======>>>>');
+    //     // parse a file upload
+    //     var form = new formidable.IncomingForm();
+    //     // 设置上传的文件夹路径
+    //     form.uploadDir = realPath
+    //     form.keepExtensions = true
+
+    //     console.log(form.type)
+
+    //     form.parse(req, function(err, fields, files) {
+    //       if (err) {
+    //         console.log('err: ' + err)
+    //         return
+    //       }
+
+    //       console.log('success');
+    //       console.log(fields)
+    //       console.log(files);
+
+    //       redirect(res, './')
+    //     });
+    //     return
+    //   }
+    //   if (body.opt == 'mkdir') { // 创建文件夹
+    //     createDir(realPath, body.dirname)
+    //   } else if (body.opt === 'rmdir') { // 删除文件夹
+    //     removeDir(realPath, body.dirname)
+    //   }
+      
+    //   redirect(res, './')
+    // })
     return
   }
 
@@ -57,50 +100,13 @@ server.on('request', function(req, res) {
   })
 })
 
-function redirect(url) {
-  var address = url;
-  var body;
-  var status = 302;
-
-  // allow status / url
-  if (arguments.length === 2) {
-    if (typeof arguments[0] === 'number') {
-      status = arguments[0];
-      address = arguments[1];
-    } else {
-      deprecate('res.redirect(url, status): Use res.redirect(status, url) instead');
-      status = arguments[1];
-    }
-  }
-
-  // Set location header
-  address = res.location(address).get('Location');
-
-  // Support text/{plain,html} by default
-  this.format({
-    text: function(){
-      body = statuses[status] + '. Redirecting to ' + address
-    },
-
-    html: function(){
-      var u = escapeHtml(address);
-      body = '<p>' + statuses[status] + '. Redirecting to <a href="' + u + '">' + u + '</a></p>'
-    },
-
-    default: function(){
-      body = '';
-    }
-  });
-
-  // Respond
-  this.statusCode = status;
-  this.set('Content-Length', Buffer.byteLength(body));
-
-  if (this.req.method === 'HEAD') {
-    this.end();
-  } else {
-    this.end(body);
-  }
+function redirect(res, url) {
+  // 刷新浏览器当前页面
+  const content = `<script>window.location.href='${url}'</script>`
+  res.writeHead(200, 'OK', {
+    'Content-Type': 'text/html; charset=utf8'
+  })
+  res.end(content)
 };
 
 function createDir(folderPath, dirName) {
@@ -109,6 +115,19 @@ function createDir(folderPath, dirName) {
 
   if (!fs.existsSync(mkPath)) {
     fs.mkdirSync(mkPath);
+  }
+}
+
+function removeDir(folderPath, dirName) {
+  const rmPath = path.join(folderPath, dirName)
+  console.log('rmPath:' + rmPath)
+
+  if (fs.existsSync(rmPath)) {
+    try {
+      fs.rmdirSync(rmPath);  
+    } catch(e) {
+      console.log('删除'+ rmPath + '失败')
+    }
   }
 }
 
@@ -121,11 +140,18 @@ function directoryResponseDeal(realPath, pathName, req, res) {
     }
 
     var content = `<h1>Index of ${pathName}</h1>`
-    content += `<form method='post'>
-                    <input type="text" name="dirname" placeholder='文件夹名称'>
-                    <input type="submit" value="创建">
-                  <form>`
-    content += `<hr></hr>`
+    content += `
+                <form method="post" enctype="multipart/form-data">
+                    <input type="file" name="file">
+                    <input type="submit" value="上传">
+                </form>
+                `
+    // content += `<form enctype="multipart/form-data" method="post">
+    //             <input type="text" name="title"><br>
+    //             <input type="file" name="file"><br>
+    //             <input type="submit" value="Upload">
+    //             </form>`
+    content += `<hr/>`
     content += `<p><a href='..'>..</a></p>`
 
     files.forEach(function(file) {

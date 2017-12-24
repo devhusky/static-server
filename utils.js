@@ -33,6 +33,7 @@ exports.parseRange = function(str, size) {
   }
 }
 
+// 解析表单数据
 exports.bodyParse = function(req, cb) {
   var bodyData = ''
   req.on('data', function(data) {
@@ -45,7 +46,10 @@ exports.bodyParse = function(req, cb) {
     var body = {}
     params.forEach(function(item) {
       const kv = item.split('=')
-      body[kv[0]] = kv[1]
+      if (kv[0] && kv[1]) {
+        body[kv[0]] = kv[1]  
+      }
+      
     })
     cb(body)
   })
